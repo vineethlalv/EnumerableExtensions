@@ -48,5 +48,24 @@ namespace EnumeratorExtensions
             source.AppendSortLevel(new EnumerableSorted<TSource, TKey>(keySelector, true, comparer));
             return source;
         }
+
+
+        public static IEnumerable<TResult> Select<TSource, TResult>(this IEnumerable<TSource> source, Func<TSource, TResult> selector)
+        {
+            return new SelectEnumerable<TSource, TResult>(source, selector, null);
+        }
+        public static IEnumerable<TResult> Select<TSource, TResult>(this IEnumerable<TSource> source, Func<int, TSource, TResult> selector)
+        {
+            return new SelectEnumerable<TSource, TResult>(source, null, selector);
+        }
+
+        public static IEnumerable<TResult> SelectMany<TSource, TResult>(this IEnumerable<TSource> source, Func<TSource, IEnumerable<TResult>> selector)
+        {
+            return new SelectManyEnumerable<TSource, TResult>(source, selector, null);
+        }
+        public static IEnumerable<TResult> SelectMany<TSource, TResult>(this IEnumerable<TSource> source, Func<int, TSource, IEnumerable<TResult>> selector)
+        {
+            return new SelectManyEnumerable<TSource, TResult>(source, null, selector);
+        }
     }
 }
