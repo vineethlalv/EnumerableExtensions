@@ -9,9 +9,9 @@ namespace EnumeratorExtensions
     {
         static void Main(string[] args)
         {
-            List<string> list = new List<string>(new string[] { "Six666", "O", "Tw", "Thr", "Five5", "Seven77", "Four", "22"});
+            List<string> list = new List<string>(new string[] { "Six666", "O", "Tw", "Thr", "Five5", "Seven77", "Four", "22", null });
 
-            foreach(string s in list.OrderByDescending(x => x).ThenByDecending(x => x.Length))
+            foreach(string s in list.OrderByDescending(x => x).ThenByDecending(x => String.IsNullOrEmpty(x) ? 0 : x.Length))
             {
                 System.Console.WriteLine(s);
             }
