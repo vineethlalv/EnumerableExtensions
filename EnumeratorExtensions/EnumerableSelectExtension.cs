@@ -236,4 +236,69 @@ namespace EnumeratorExtensions
             }
         }
     }
+
+    internal class PredicatedIEnumerable<TSource> : IEnumerable<TSource>
+    {
+        IEnumerable<TSource> source;
+        Func<TSource, bool> predicate; 
+
+        public PredicatedIEnumerable(IEnumerable<TSource> source, Func<TSource, bool> predicate)
+        {
+            this.source = source;
+            this.predicate = predicate;
+        }
+
+        public IEnumerator<TSource> GetEnumerator()
+        {
+            return new PredicateEnumerator(source, predicate);
+        }
+
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            return GetEnumerator();
+        }
+
+        private class PredicateEnumerator : IEnumerator<TSource>
+        {
+            IEnumerator<TSource> sourceEnumerator;
+            Func<TSource, bool> predicate;
+
+            public PredicateEnumerator(IEnumerable<TSource> source, Func<TSource, bool> predicate)
+            {
+                this.sourceEnumerator = source.GetEnumerator();
+                this.predicate = predicate;
+            }
+
+            public TSource Current
+            {
+                get
+                {
+                    return sourceEnumerator.Current;
+                }
+            }
+
+            object IEnumerator.Current => Current;
+
+            public void Dispose()
+            {
+                sourceEnumerator.Dispose();
+            }
+
+            public bool MoveNext()
+            {
+                while(sourceEnumerator.MoveNext())
+                {
+                    if (predicate(sourceEnumerator.Current))
+                        return true;
+                }
+
+                return false;
+            }
+
+            public void Reset()
+            {
+                throw new NotImplementedException();
+            }
+        }
+    }
 }

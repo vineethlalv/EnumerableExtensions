@@ -42,6 +42,12 @@ namespace EnumeratorExtensions
             }
             System.Console.WriteLine(string.Empty);
 
+            foreach (string s in list.Where(x => x != null ? x.Length > 3 : false))
+            {
+                System.Console.WriteLine(s);
+            }
+            System.Console.WriteLine(string.Empty);
+
 
             System.Console.ReadLine();
         }

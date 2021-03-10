@@ -72,5 +72,10 @@ namespace EnumeratorExtensions
         {
             return new ZipSelectEnumerable<TSource1, TSource2, TResult>(source, source2, selector);
         }
+
+        public static IEnumerable<TSource> Where<TSource>(this IEnumerable<TSource> source, Func<TSource, bool> predicate)
+        {
+            return new PredicatedIEnumerable<TSource>(source, predicate);
+        }
     }
 }
