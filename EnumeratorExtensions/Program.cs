@@ -35,6 +35,14 @@ namespace EnumeratorExtensions
             }
             System.Console.WriteLine(string.Empty);
 
+            List<string> zipList = new List<string>(new string[] { "+1", "+2", "+3", "+4", "+5"});
+            foreach (string s in list.Zip(zipList, (a, b) => ((a ?? "") + (b ?? ""))))
+            {
+                System.Console.WriteLine(s);
+            }
+            System.Console.WriteLine(string.Empty);
+
+
             System.Console.ReadLine();
         }
     }

@@ -67,5 +67,10 @@ namespace EnumeratorExtensions
         {
             return new SelectManyEnumerable<TSource, TResult>(source, null, selector);
         }
+
+        public static IEnumerable<TResult> Zip<TSource1, TSource2, TResult>(this IEnumerable<TSource1> source, IEnumerable<TSource2> source2, Func<TSource1, TSource2, TResult> selector)
+        {
+            return new ZipSelectEnumerable<TSource1, TSource2, TResult>(source, source2, selector);
+        }
     }
 }

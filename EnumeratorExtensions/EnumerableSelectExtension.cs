@@ -163,6 +163,77 @@ namespace EnumeratorExtensions
             {
                 throw new NotImplementedException();
             }
+        }        
+    }
+
+    internal class ZipSelectEnumerable<TSource1, TSource2, TResult> : IEnumerable<TResult>
+    {
+        IEnumerable<TSource1> source;
+        IEnumerable<TSource2> zipSource;
+        Func<TSource1, TSource2, TResult> selector;
+
+        public ZipSelectEnumerable(IEnumerable<TSource1> source, IEnumerable<TSource2> zipSource, Func<TSource1, TSource2, TResult> selector)
+        {
+            if (source == null)
+                throw new ArgumentNullException("'source' can't be null");
+            if (zipSource == null)
+                throw new ArgumentNullException("'zipsource' can't be null");
+            if (selector == null)
+                throw new ArgumentNullException("'selector' can't be null");
+
+            this.source = source;
+            this.zipSource = zipSource;
+            this.selector = selector;
+        }
+
+        public IEnumerator<TResult> GetEnumerator()
+        {
+            return new ZipEnumerator(source, zipSource, selector);
+        }
+
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            return GetEnumerator();
+        }
+
+        private class ZipEnumerator : IEnumerator<TResult>
+        {
+            IEnumerator<TSource1> sourceEnumerator;
+            IEnumerator<TSource2> zipSourceEnumerator;
+            Func<TSource1, TSource2, TResult> selector;
+
+            public ZipEnumerator(IEnumerable<TSource1> source, IEnumerable<TSource2> zipSource, Func<TSource1, TSource2, TResult> selector)
+            {
+                this.sourceEnumerator = source.GetEnumerator();
+                this.zipSourceEnumerator = zipSource.GetEnumerator();
+                this.selector = selector;
+            }
+
+            public TResult Current
+            {
+                get
+                {
+                    return selector(sourceEnumerator.Current, zipSourceEnumerator.Current);
+                }
+            }
+
+            object IEnumerator.Current => Current;
+
+            public void Dispose()
+            {
+                sourceEnumerator.Dispose();
+                zipSourceEnumerator.Dispose();
+            }
+
+            public bool MoveNext()
+            {
+                return sourceEnumerator.MoveNext() && zipSourceEnumerator.MoveNext();
+            }
+
+            public void Reset()
+            {
+                throw new NotImplementedException();
+            }
         }
     }
 }
