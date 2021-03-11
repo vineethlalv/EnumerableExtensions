@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
+using System.Linq; //@todo: re-implement utilities used
 using System.Text;
 using System.Threading.Tasks;
 
@@ -9,7 +9,7 @@ namespace EnumeratorExtensions
 {
     public interface IOrderedEnumerable<TSource> : IEnumerable<TSource>
     {
-        void AppendSortLevel(EnumerableSorted<TSource> next);
+        void AppendOrderCriteria(EnumerableSorted<TSource> next);
     }
 
     public abstract class EnumerableSorted<TSource>
@@ -19,21 +19,22 @@ namespace EnumeratorExtensions
         public abstract void AddNext(EnumerableSorted<TSource> next);
     }
 
-    internal class OrderedEnumerable<TSource, TKey>: IOrderedEnumerable<TSource>
+    internal class EnumerableOrderBy<TSource, TKey>: IOrderedEnumerable<TSource>
     {
+        //@todo: optimization - skip computekey if source didn't changed ??
         IEnumerable<TSource> source;
-        EnumerableSorted<TSource, TKey> sortParameters;
-        EnumerableSorted<TSource> sortParametersTail;
+        EnumerableSorted<TSource, TKey> orderCriteria;
+        EnumerableSorted<TSource> orderCriteriaTail;
 
 
-        public OrderedEnumerable(IEnumerable<TSource> source, Func<TSource, TKey> keySelector, bool decending, IComparer<TKey> comparer)
+        public EnumerableOrderBy(IEnumerable<TSource> source, Func<TSource, TKey> keySelector, bool decending, IComparer<TKey> comparer)
         {
             if (source == null)
-                throw new ArgumentNullException("source can't be null");
+                throw new ArgumentNullException("'source' can't be null");
 
             this.source = source;
-            sortParameters = new EnumerableSorted<TSource, TKey>(keySelector, decending, comparer);
-            sortParametersTail = sortParameters;
+            orderCriteria = new EnumerableSorted<TSource, TKey>(keySelector, decending, comparer);
+            orderCriteriaTail = orderCriteria;
         }
 
         public IEnumerable<TSource> GetSource()
@@ -41,36 +42,24 @@ namespace EnumeratorExtensions
             return source;
         }
 
-        public void AppendSortLevel(EnumerableSorted<TSource> next)
+        public void AppendOrderCriteria(EnumerableSorted<TSource> next)
         {
-            sortParametersTail.AddNext(next);
-            sortParametersTail = next;
+            orderCriteriaTail.AddNext(next);
+            orderCriteriaTail = next;
         }
 
         public IEnumerator<TSource> GetEnumerator()
         {
-            List<TSource> sourceList = new List<TSource>(source);
-            sortParameters.ComputeKeys(sourceList);
-
-            int[] orderMap = ComputeOrderMap(sourceList);
-
-            return new OrderEnumerator(sourceList, orderMap);
+            return new Enumerator(this);
         }
-
-        int[] ComputeOrderMap(List<TSource> elements)
-        {
-            List<int> map = new List<int>(Enumerable.Range(0, elements.Count));
-            map.Sort(sortParameters);
-            return map.ToArray();
-        }
-
         IEnumerator IEnumerable.GetEnumerator()
         {
             return GetEnumerator();
         }
 
-        class OrderEnumerator : IEnumerator<TSource>
+        private class Enumerator : IEnumerator<TSource>
         {
+            //@todo: multi-threaded scenario
             List<TSource> sourceList;
             int[] orderMap;
             int currentIndex;
@@ -86,20 +75,28 @@ namespace EnumeratorExtensions
             }
             object IEnumerator.Current => Current;
 
-            public OrderEnumerator(List<TSource> list, int[] map)
+            public Enumerator(EnumerableOrderBy<TSource, TKey> orderHead)
             {
-                if (list == null)
-                    throw new ArgumentNullException("list can't be null");
-                if (map == null)
-                    throw new ArgumentNullException("ordermap can't be null");
-                if (list.Count != map.Count())
-                    throw new ArgumentException("non matching sequence lengths");
-
-
+                sourceList = GetSourceAsList(orderHead.source);
+                orderHead.orderCriteria.ComputeKeys(sourceList);
+                orderMap = GetOrderedIndexArray(orderHead.orderCriteria);
                 currentIndex = -1;
-                sourceList = list;
-                orderMap = map;
             }
+
+            private List<TSource> GetSourceAsList(IEnumerable<TSource> source)
+            {
+                //@todo: re-implement as lightweight collection
+                return new List<TSource>(source);
+            }
+            private int[] GetOrderedIndexArray(EnumerableSorted<TSource, TKey> orderCriteriaHead)
+            {
+                //@todo: re-implement List<> as lightweight, make Sort() a utility method
+                //@todo: write own utilities for Enumerable.Range remove reliance to Linq utilities
+                List<int> map = new List<int>(Enumerable.Range(0, sourceList.Count));
+                map.Sort(orderCriteriaHead);
+                return map.ToArray();
+            }
+
             public bool MoveNext()
             {
                 return ++currentIndex < sourceList.Count;
@@ -107,11 +104,12 @@ namespace EnumeratorExtensions
 
             public void Reset()
             {
-                throw new NotImplementedException();
+                currentIndex = -1;
             }
 
             public void Dispose()
             {
+                //@todo: GC optimization ?
             }
         }
     }

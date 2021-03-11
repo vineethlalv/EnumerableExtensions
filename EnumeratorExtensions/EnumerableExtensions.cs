@@ -11,7 +11,7 @@ namespace EnumeratorExtensions
         }
         public static IOrderedEnumerable<TSource> OrderBy<TSource, TKey>(this IEnumerable<TSource> source, Func<TSource, TKey> keySelector, IComparer<TKey> comparer)
         {
-            return new OrderedEnumerable<TSource, TKey>(source, keySelector, false, comparer);
+            return new EnumerableOrderBy<TSource, TKey>(source, keySelector, false, comparer);
         }
 
         public static IOrderedEnumerable<TSource> OrderByDescending<TSource, TKey>(this IEnumerable<TSource> source, Func<TSource, TKey> keySelector)
@@ -20,7 +20,7 @@ namespace EnumeratorExtensions
         }
         public static IOrderedEnumerable<TSource> OrderByDescending<TSource, TKey>(this IEnumerable<TSource> source, Func<TSource, TKey> keySelector, IComparer<TKey> comparer)
         {
-            return new OrderedEnumerable<TSource, TKey>(source, keySelector, true, comparer);
+            return new EnumerableOrderBy<TSource, TKey>(source, keySelector, true, comparer);
         }
 
         public static IOrderedEnumerable<TSource> ThenBy<TSource, TKey>(this IOrderedEnumerable<TSource> source, Func<TSource, TKey> keySelector)
@@ -30,9 +30,9 @@ namespace EnumeratorExtensions
         public static IOrderedEnumerable<TSource> ThenBy<TSource, TKey>(this IOrderedEnumerable<TSource> source, Func<TSource, TKey> keySelector, IComparer<TKey> comparer)
         {
             if (source == null)
-                throw new ArgumentNullException("source can't be null");
+                throw new ArgumentNullException("'source' can't be null");
 
-            source.AppendSortLevel(new EnumerableSorted<TSource, TKey>(keySelector, false, comparer));
+            source.AppendOrderCriteria(new EnumerableSorted<TSource, TKey>(keySelector, false, comparer));
             return source;
         }
 
@@ -43,9 +43,9 @@ namespace EnumeratorExtensions
         public static IOrderedEnumerable<TSource> ThenByDecending<TSource, TKey>(this IOrderedEnumerable<TSource> source, Func<TSource, TKey> keySelector, IComparer<TKey> comparer)
         {
             if (source == null)
-                throw new ArgumentNullException("source can't be null");
+                throw new ArgumentNullException("'source' can't be null");
 
-            source.AppendSortLevel(new EnumerableSorted<TSource, TKey>(keySelector, true, comparer));
+            source.AppendOrderCriteria(new EnumerableSorted<TSource, TKey>(keySelector, true, comparer));
             return source;
         }
 
