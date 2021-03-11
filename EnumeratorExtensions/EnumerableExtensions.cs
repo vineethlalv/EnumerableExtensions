@@ -52,30 +52,36 @@ namespace EnumeratorExtensions
 
         public static IEnumerable<TResult> Select<TSource, TResult>(this IEnumerable<TSource> source, Func<TSource, TResult> selector)
         {
-            return new SelectEnumerable<TSource, TResult>(source, selector, null);
+            Func<TSource, TResult> selectorCopy = selector;
+            Func<int, TSource, TResult> selectorWithIndex = (int i, TSource s) => { return selectorCopy(s); } ; //@todo: research implications
+
+            return new EnumerableSelect<TSource, TResult>(source, selectorWithIndex);
         }
         public static IEnumerable<TResult> Select<TSource, TResult>(this IEnumerable<TSource> source, Func<int, TSource, TResult> selector)
         {
-            return new SelectEnumerable<TSource, TResult>(source, null, selector);
+            return new EnumerableSelect<TSource, TResult>(source, selector);
         }
 
         public static IEnumerable<TResult> SelectMany<TSource, TResult>(this IEnumerable<TSource> source, Func<TSource, IEnumerable<TResult>> selector)
         {
-            return new SelectManyEnumerable<TSource, TResult>(source, selector, null);
+            Func<TSource, IEnumerable<TResult>> selectorCopy = selector;
+            Func<int, TSource, IEnumerable<TResult>> selectorWithIndex = (int i, TSource s) => { return selectorCopy(s); }; //@todo: research implications
+
+            return new EnumerableSelectMany<TSource, TResult>(source, selectorWithIndex);
         }
         public static IEnumerable<TResult> SelectMany<TSource, TResult>(this IEnumerable<TSource> source, Func<int, TSource, IEnumerable<TResult>> selector)
         {
-            return new SelectManyEnumerable<TSource, TResult>(source, null, selector);
+            return new EnumerableSelectMany<TSource, TResult>(source, selector);
         }
 
         public static IEnumerable<TResult> Zip<TSource1, TSource2, TResult>(this IEnumerable<TSource1> source, IEnumerable<TSource2> source2, Func<TSource1, TSource2, TResult> selector)
         {
-            return new ZipSelectEnumerable<TSource1, TSource2, TResult>(source, source2, selector);
+            return new EnumerableZip<TSource1, TSource2, TResult>(source, source2, selector);
         }
 
         public static IEnumerable<TSource> Where<TSource>(this IEnumerable<TSource> source, Func<TSource, bool> predicate)
         {
-            return new PredicatedIEnumerable<TSource>(source, predicate);
+            return new EnumerableWhere<TSource>(source, predicate);
         }
     }
 }

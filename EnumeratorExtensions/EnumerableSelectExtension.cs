@@ -7,118 +7,107 @@ using System.Threading.Tasks;
 
 namespace EnumeratorExtensions
 {
-    internal class SelectEnumerable<TSource, TResult> : IEnumerable<TResult>
+    internal class EnumerableSelect<TSource, TResult> : IEnumerable<TResult>
     {
         IEnumerable<TSource> source;
-        Func<TSource, TResult> selector;
-        Func<int, TSource, TResult> indexedSelector;
+        Func<int, TSource, TResult> selector;
 
-        public SelectEnumerable(IEnumerable<TSource> source, Func<TSource, TResult> selector, Func<int, TSource, TResult> indexedSelector)
+        public EnumerableSelect(IEnumerable<TSource> source, Func<int, TSource, TResult> selector)
         {
             if (source == null)
-                throw new ArgumentNullException("source can't be null");
-            if (selector == null && indexedSelector == null)
-                throw new ArgumentNullException("selector can't be null");
+                throw new ArgumentNullException("'source' can't be null");
+            if (selector == null)
+                throw new ArgumentNullException("'selector' can't be null");
 
             this.source = source;
             this.selector = selector;
-            this.indexedSelector = indexedSelector ?? DummyIndexedSelector;
-        }
-
-        private TResult DummyIndexedSelector(int i, TSource s)
-        {
-            return selector(s);
         }
 
         public IEnumerator<TResult> GetEnumerator()
         {
-            return new SelectorEnumerator(source, indexedSelector);
+            return new Enumerator(this);
         }
-
         IEnumerator IEnumerable.GetEnumerator()
         {
             return GetEnumerator();
         }
 
-        private class SelectorEnumerator : IEnumerator<TResult>
+        private class Enumerator : IEnumerator<TResult>
         {
-            IEnumerator<TSource> sourceEnumerator;
-            Func<int, TSource, TResult> selector;
-            int index = -1;
+            //@todo: review operation in multi-threaded scenario
+            EnumerableSelect<TSource, TResult> parent;
+            IEnumerator<TSource> enumerator;            
+            int index;
 
             public TResult Current
             {
                 get
                 {
-                    return selector(index, sourceEnumerator.Current);
+                    return parent.selector(index, enumerator.Current);
                 }
             }
             object IEnumerator.Current => Current;
 
 
-            public SelectorEnumerator(IEnumerable<TSource> source, Func<int, TSource, TResult> selector)
+            public Enumerator(EnumerableSelect<TSource, TResult> parent)
             {
-                sourceEnumerator = source.GetEnumerator();
-                this.selector = selector;
+                this.parent = parent;
+                enumerator = parent.source.GetEnumerator();
+                index = -1;
             }
 
             public void Dispose()
             {
-                sourceEnumerator.Dispose();
+                enumerator.Dispose();
+                //@todo: GC optimization
             }
 
             public bool MoveNext()
             {
                 ++index;
-                return sourceEnumerator.MoveNext();
+                return enumerator.MoveNext();
             }
 
             public void Reset()
             {
-                throw new NotImplementedException();
+                enumerator.Reset();
+                index = -1;
             }
         }
     }
 
-    internal class SelectManyEnumerable<TSource, TResult> : IEnumerable<TResult>
+    internal class EnumerableSelectMany<TSource, TResult> : IEnumerable<TResult>
     {
         IEnumerable<TSource> source;
-        Func<TSource, IEnumerable<TResult>> selector;
-        Func<int, TSource, IEnumerable<TResult>> indexedSelector;
+        Func<int, TSource, IEnumerable<TResult>> selector;
 
-        public SelectManyEnumerable(IEnumerable<TSource> source, Func<TSource, IEnumerable<TResult>> selector, Func<int, TSource, IEnumerable<TResult>> indexedSelector)
+        public EnumerableSelectMany(IEnumerable<TSource> source, Func<int, TSource, IEnumerable<TResult>> selector)
         {
             if (source == null)
-                throw new ArgumentNullException("source can't be null");
-            if (selector == null && indexedSelector == null)
-                throw new ArgumentNullException("selector can't be null");
+                throw new ArgumentNullException("'source' can't be null");
+            if (selector == null)
+                throw new ArgumentNullException("'selector' can't be null");
 
             this.source = source;
             this.selector = selector;
-            this.indexedSelector = indexedSelector ?? DummyIndexedSelector;
-        }
-
-        private IEnumerable<TResult> DummyIndexedSelector(int i, TSource s)
-        {
-            return selector(s);
         }
 
         public IEnumerator<TResult> GetEnumerator()
         {
-            return new SelectManyEnumerator(source, indexedSelector);
+            return new Enumerator(this);
         }
-
         IEnumerator IEnumerable.GetEnumerator()
         {
             return GetEnumerator();
         }
 
-        private class SelectManyEnumerator : IEnumerator<TResult>
+        private class Enumerator : IEnumerator<TResult>
         {
-            IEnumerator<TSource> sourceEnumerator;
-            IEnumerator<TResult> resultSubEnumerator;
-            Func<int, TSource, IEnumerable<TResult>> selector;
-            int index = -1;
+            //@todo: multi-threaded scenario
+            EnumerableSelectMany<TSource, TResult> parent;
+            IEnumerator<TSource> enumerator;
+            IEnumerator<TResult> subEnumerator;
+            int index;
 
             public TResult Current
             {
@@ -127,122 +116,127 @@ namespace EnumeratorExtensions
                     if (index == -1)
                         throw new InvalidOperationException();
 
-                    return resultSubEnumerator.Current;
+                    return subEnumerator.Current;
                 }
             }
             object IEnumerator.Current => Current;
 
 
-            public SelectManyEnumerator(IEnumerable<TSource> source, Func<int, TSource, IEnumerable<TResult>> selector)
+            public Enumerator(EnumerableSelectMany<TSource, TResult> parent)
             {
-                sourceEnumerator = source.GetEnumerator();
-                this.selector = selector;
+                this.parent = parent;
+                enumerator = parent.source.GetEnumerator();
+                index = -1;
 
-                resultSubEnumerator = Enumerable.Empty<TResult>().GetEnumerator();
+                subEnumerator = Enumerable.Empty<TResult>().GetEnumerator(); //@todo: re-implement LINQ utility class
             }
 
             public void Dispose()
             {
-                sourceEnumerator.Dispose();
+                enumerator.Dispose();
+                subEnumerator.Dispose();
+                //@todo: GC optimization
             }
 
             public bool MoveNext()
             {
                 ++index;
-                while (!resultSubEnumerator.MoveNext())
+                while (!subEnumerator.MoveNext())
                 {
-                    if (!sourceEnumerator.MoveNext())
+                    if (!enumerator.MoveNext())
                         return false;
 
-                    resultSubEnumerator = selector(index, sourceEnumerator.Current).GetEnumerator();
+                    subEnumerator = parent.selector(index, enumerator.Current).GetEnumerator();
                 }
                 return true;
             }
 
             public void Reset()
             {
-                throw new NotImplementedException();
+                enumerator.Reset();
+                index = -1;
             }
-        }        
+        }
     }
 
-    internal class ZipSelectEnumerable<TSource1, TSource2, TResult> : IEnumerable<TResult>
+    internal class EnumerableZip<TSource1, TSource2, TResult> : IEnumerable<TResult>
     {
-        IEnumerable<TSource1> source;
-        IEnumerable<TSource2> zipSource;
+        IEnumerable<TSource1> source1;
+        IEnumerable<TSource2> source2;
         Func<TSource1, TSource2, TResult> selector;
 
-        public ZipSelectEnumerable(IEnumerable<TSource1> source, IEnumerable<TSource2> zipSource, Func<TSource1, TSource2, TResult> selector)
+        public EnumerableZip(IEnumerable<TSource1> source1, IEnumerable<TSource2> source2, Func<TSource1, TSource2, TResult> selector)
         {
-            if (source == null)
-                throw new ArgumentNullException("'source' can't be null");
-            if (zipSource == null)
-                throw new ArgumentNullException("'zipsource' can't be null");
+            if (source1 == null)
+                throw new ArgumentNullException("'source1' can't be null");
+            if (source2 == null)
+                throw new ArgumentNullException("'source2' can't be null");
             if (selector == null)
                 throw new ArgumentNullException("'selector' can't be null");
 
-            this.source = source;
-            this.zipSource = zipSource;
+            this.source1 = source1;
+            this.source2 = source2;
             this.selector = selector;
         }
 
         public IEnumerator<TResult> GetEnumerator()
         {
-            return new ZipEnumerator(source, zipSource, selector);
+            return new Enumerator(this);
         }
-
         IEnumerator IEnumerable.GetEnumerator()
         {
             return GetEnumerator();
         }
 
-        private class ZipEnumerator : IEnumerator<TResult>
+        private class Enumerator : IEnumerator<TResult>
         {
-            IEnumerator<TSource1> sourceEnumerator;
-            IEnumerator<TSource2> zipSourceEnumerator;
-            Func<TSource1, TSource2, TResult> selector;
+            //@todo: multi-threaded scenario
+            EnumerableZip<TSource1, TSource2, TResult> parent;
+            IEnumerator<TSource1> enumerator1;
+            IEnumerator<TSource2> enumerator2;
 
-            public ZipEnumerator(IEnumerable<TSource1> source, IEnumerable<TSource2> zipSource, Func<TSource1, TSource2, TResult> selector)
+            public Enumerator(EnumerableZip<TSource1, TSource2, TResult> parent)
             {
-                this.sourceEnumerator = source.GetEnumerator();
-                this.zipSourceEnumerator = zipSource.GetEnumerator();
-                this.selector = selector;
+                this.parent = parent;
+                this.enumerator1 = parent.source1.GetEnumerator();
+                this.enumerator2 = parent.source2.GetEnumerator();
             }
 
             public TResult Current
             {
                 get
                 {
-                    return selector(sourceEnumerator.Current, zipSourceEnumerator.Current);
+                    return parent.selector(enumerator1.Current, enumerator2.Current);
                 }
             }
-
             object IEnumerator.Current => Current;
 
             public void Dispose()
             {
-                sourceEnumerator.Dispose();
-                zipSourceEnumerator.Dispose();
+                enumerator1.Dispose();
+                enumerator2.Dispose();
+                //@todo GC optimization
             }
 
             public bool MoveNext()
             {
-                return sourceEnumerator.MoveNext() && zipSourceEnumerator.MoveNext();
+                return enumerator1.MoveNext() && enumerator2.MoveNext();
             }
 
             public void Reset()
             {
-                throw new NotImplementedException();
+                enumerator1.Reset();
+                enumerator2.Reset();
             }
         }
     }
 
-    internal class PredicatedIEnumerable<TSource> : IEnumerable<TSource>
+    internal class EnumerableWhere<TSource> : IEnumerable<TSource>
     {
         IEnumerable<TSource> source;
         Func<TSource, bool> predicate; 
 
-        public PredicatedIEnumerable(IEnumerable<TSource> source, Func<TSource, bool> predicate)
+        public EnumerableWhere(IEnumerable<TSource> source, Func<TSource, bool> predicate)
         {
             this.source = source;
             this.predicate = predicate;
@@ -250,46 +244,55 @@ namespace EnumeratorExtensions
 
         public IEnumerator<TSource> GetEnumerator()
         {
-            return new PredicateEnumerator(source, predicate);
+            return new Enumerator(this);
         }
-
         IEnumerator IEnumerable.GetEnumerator()
         {
             return GetEnumerator();
         }
 
-        private class PredicateEnumerator : IEnumerator<TSource>
+        private class Enumerator : IEnumerator<TSource>
         {
-            IEnumerator<TSource> sourceEnumerator;
-            Func<TSource, bool> predicate;
+            //@todo: multi-threaded scenario
+            EnumerableWhere<TSource> parent;
+            IEnumerator<TSource> enumerator;
+            TSource current;
+            bool started;
 
-            public PredicateEnumerator(IEnumerable<TSource> source, Func<TSource, bool> predicate)
+            public Enumerator(EnumerableWhere<TSource> parent)
             {
-                this.sourceEnumerator = source.GetEnumerator();
-                this.predicate = predicate;
+                this.parent = parent;
+                this.enumerator = parent.source.GetEnumerator();
+                started = false;
             }
 
             public TSource Current
             {
                 get
                 {
-                    return sourceEnumerator.Current;
+                    if (!started)
+                        throw new InvalidOperationException();
+
+                    return current;
                 }
             }
-
             object IEnumerator.Current => Current;
 
             public void Dispose()
             {
-                sourceEnumerator.Dispose();
+                enumerator.Dispose();
+                //@todo: GC optimization
             }
 
             public bool MoveNext()
-            {
-                while(sourceEnumerator.MoveNext())
+            {                
+                while (enumerator.MoveNext())
                 {
-                    if (predicate(sourceEnumerator.Current))
+                    if (parent.predicate(current = enumerator.Current))
+                    {
+                        started = true;
                         return true;
+                    }
                 }
 
                 return false;
@@ -297,7 +300,7 @@ namespace EnumeratorExtensions
 
             public void Reset()
             {
-                throw new NotImplementedException();
+                enumerator.Reset();
             }
         }
     }
