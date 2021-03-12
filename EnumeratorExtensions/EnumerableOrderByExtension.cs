@@ -2,29 +2,25 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq; //@todo: re-implement utilities used
-using System.Text;
-using System.Threading.Tasks;
+
 
 namespace EnumeratorExtensions
 {
     public interface IOrderedEnumerable<TSource> : IEnumerable<TSource>
     {
-        void AppendOrderCriteria(EnumerableSorted<TSource> next);
+        IEnumerator<TSource> CreateOrderedEnumerable(IEnumerableSorted<TSource> nextOrderLevel);
     }
 
-    public abstract class EnumerableSorted<TSource>
+    public interface IEnumerableSorted<TSource> : IComparer<int>
     {
-        public abstract void ComputeKeys(List<TSource> source);
-        public abstract int Compare(int i1, int i2);
-        public abstract void AddNext(EnumerableSorted<TSource> next);
+        void ComputeKeys(List<TSource> source);
+        void SetNext(IEnumerableSorted<TSource> next);
     }
 
     internal class EnumerableOrderBy<TSource, TKey>: IOrderedEnumerable<TSource>
     {
-        //@todo: optimization - skip computekey if source didn't changed ??
         IEnumerable<TSource> source;
-        EnumerableSorted<TSource, TKey> orderCriteria;
-        EnumerableSorted<TSource> orderCriteriaTail;
+        EnumerableSorted<TSource, TKey> orderRule;
 
 
         public EnumerableOrderBy(IEnumerable<TSource> source, Func<TSource, TKey> keySelector, bool decending, IComparer<TKey> comparer)
@@ -33,23 +29,18 @@ namespace EnumeratorExtensions
                 throw new ArgumentNullException("'source' can't be null");
 
             this.source = source;
-            orderCriteria = new EnumerableSorted<TSource, TKey>(keySelector, decending, comparer);
-            orderCriteriaTail = orderCriteria;
+            orderRule = new EnumerableSorted<TSource, TKey>(keySelector, decending, comparer, this);
         }
 
-        public IEnumerable<TSource> GetSource()
+        public IEnumerator<TSource> CreateOrderedEnumerable(IEnumerableSorted<TSource> nextSortLevel)
         {
-            return source;
-        }
-
-        public void AppendOrderCriteria(EnumerableSorted<TSource> next)
-        {
-            orderCriteriaTail.AddNext(next);
-            orderCriteriaTail = next;
+            orderRule.SetNext(nextSortLevel);
+            return new Enumerator(this);
         }
 
         public IEnumerator<TSource> GetEnumerator()
         {
+            orderRule.SetNext(null);
             return new Enumerator(this);
         }
         IEnumerator IEnumerable.GetEnumerator()
@@ -78,8 +69,8 @@ namespace EnumeratorExtensions
             public Enumerator(EnumerableOrderBy<TSource, TKey> orderHead)
             {
                 sourceList = GetSourceAsList(orderHead.source);
-                orderHead.orderCriteria.ComputeKeys(sourceList);
-                orderMap = GetOrderedIndexArray(orderHead.orderCriteria);
+                orderHead.orderRule.ComputeKeys(sourceList);
+                orderMap = GetOrderedIndexArray(orderHead.orderRule);
                 currentIndex = -1;
             }
 
@@ -114,55 +105,79 @@ namespace EnumeratorExtensions
         }
     }
 
-    internal class EnumerableSorted<TSource, TKey> : EnumerableSorted<TSource>, IComparer<int>
+    internal class EnumerableSorted<TSource, TKey> : IOrderedEnumerable<TSource>, IEnumerableSorted<TSource>
     {
         Func<TSource, TKey> keySelector;
-        bool decending;
         IComparer<TKey> comparer;
-        EnumerableSorted<TSource> next;
+        bool decending;
+
+        IOrderedEnumerable<TSource> parent;
+        IEnumerableSorted<TSource> next;
 
         TKey[] keys;
 
-        public EnumerableSorted(Func<TSource, TKey> keySelector, bool decending, IComparer<TKey> comparer)
+        public EnumerableSorted(Func<TSource, TKey> keySelector, bool decending, IComparer<TKey> comparer, IOrderedEnumerable<TSource> parent)
         {
             if (keySelector == null)
-                throw new ArgumentNullException("keySelector can't be null");
+                throw new ArgumentNullException("'keySelector' can't be null");
 
             this.keySelector = keySelector;
             this.decending = decending;
             this.comparer = comparer ?? Comparer<TKey>.Default;
-            next = null;
+            this.parent = parent;
         }
 
-        public override void AddNext(EnumerableSorted<TSource> next)
+        public void SetNext(IEnumerableSorted<TSource> next)
         {
             this.next = next;
         }
 
-        public override void ComputeKeys(List<TSource> source)
+        public void ComputeKeys(List<TSource> source)
         {
             if (source == null)
-                throw new ArgumentNullException("source can't be null");
+                throw new ArgumentNullException("'source' can't be null");
 
             keys = new TKey[source.Count];
             for(int i = 0; i < source.Count; i++)
                 keys[i] = keySelector(source[i]);
 
-            if (next != null)
+            if(next != null)
                 next.ComputeKeys(source);
         }
 
-        public override int Compare(int i1, int i2)
+        public int Compare(int i1, int i2)
         {
             int order = comparer.Compare(keys[i1], keys[i2]);
-            if(order == 0)
+            if (order == 0)
             {
-                if(next != null)
+                if (next != null)
                     return next.Compare(i1, i2);
 
                 return i2 - i1;
             }
             return decending ? -order : order;
+        }
+
+        public IEnumerator<TSource> CreateOrderedEnumerable(IEnumerableSorted<TSource> next)
+        {
+            if(parent == null)
+                throw new InvalidOperationException("");
+
+            this.SetNext(next);
+            return parent.CreateOrderedEnumerable(this);
+        }
+
+        public IEnumerator<TSource> GetEnumerator()
+        {
+            if (parent == null)
+                throw new InvalidOperationException("");
+
+            this.SetNext(null);
+            return parent.CreateOrderedEnumerable(this);
+        }
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            return GetEnumerator();
         }
     }
 }

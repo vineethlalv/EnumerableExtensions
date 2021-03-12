@@ -32,8 +32,7 @@ namespace EnumeratorExtensions
             if (source == null)
                 throw new ArgumentNullException("'source' can't be null");
 
-            source.AppendOrderCriteria(new EnumerableSorted<TSource, TKey>(keySelector, false, comparer));
-            return source;
+            return new EnumerableSorted<TSource, TKey>(keySelector, false, comparer, source);
         }
 
         public static IOrderedEnumerable<TSource> ThenByDecending<TSource, TKey>(this IOrderedEnumerable<TSource> source, Func<TSource, TKey> keySelector)
@@ -45,8 +44,7 @@ namespace EnumeratorExtensions
             if (source == null)
                 throw new ArgumentNullException("'source' can't be null");
 
-            source.AppendOrderCriteria(new EnumerableSorted<TSource, TKey>(keySelector, true, comparer));
-            return source;
+            return new EnumerableSorted<TSource, TKey>(keySelector, true, comparer, source);
         }
 
 

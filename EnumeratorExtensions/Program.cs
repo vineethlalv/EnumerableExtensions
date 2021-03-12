@@ -35,7 +35,7 @@ namespace EnumeratorExtensions
 
         static void OrderByTest()
         {
-            foreach (string s in list.OrderByDescending(x => x).ThenByDecending(x => String.IsNullOrEmpty(x) ? 0 : x.Length))
+            foreach (string s in list.OrderByDescending(x => x == null ? 0 : x[0]).ThenBy(x => String.IsNullOrEmpty(x) ? 0 : x.Length))
             {
                 System.Console.WriteLine(s);
             }
