@@ -37,13 +37,16 @@ namespace EnumeratorExtensions
             //@todo: review operation in multi-threaded scenario
             EnumerableSelect<TSource, TResult> parent;
             IEnumerator<TSource> enumerator;            
-            int index;
+            int? index;
 
             public TResult Current
             {
                 get
                 {
-                    return parent.selector(index, enumerator.Current);
+                    if (index == null)
+                        throw new InvalidOperationException();
+
+                    return parent.selector(index.Value, enumerator.Current);
                 }
             }
             object IEnumerator.Current => Current;
@@ -64,8 +67,13 @@ namespace EnumeratorExtensions
 
             public bool MoveNext()
             {
-                ++index;
-                return enumerator.MoveNext();
+                bool ret = enumerator.MoveNext();
+                if(index != null)
+                {
+                    index = ret ? index + 1 : null;
+                }
+
+                return ret;
             }
 
             public void Reset()

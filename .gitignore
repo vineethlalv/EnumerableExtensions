@@ -1,3 +1,6 @@
 .vs/
 EnumeratorExtensions/obj/
 EnumeratorExtensions/bin/
+EnumerableExtensions.UnitTests/obj/
+EnumerableExtensions.UnitTests/bin/
+packages/
