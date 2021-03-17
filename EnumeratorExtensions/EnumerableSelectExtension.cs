@@ -37,16 +37,16 @@ namespace EnumeratorExtensions
             //@todo: review operation in multi-threaded scenario
             EnumerableSelect<TSource, TResult> parent;
             IEnumerator<TSource> enumerator;            
-            int? index;
+            int index;
 
             public TResult Current
             {
                 get
                 {
-                    if (index == null)
+                    if (index == -1)
                         throw new InvalidOperationException();
 
-                    return parent.selector(index.Value, enumerator.Current);
+                    return parent.selector(index, enumerator.Current);
                 }
             }
             object IEnumerator.Current => Current;
@@ -68,10 +68,7 @@ namespace EnumeratorExtensions
             public bool MoveNext()
             {
                 bool ret = enumerator.MoveNext();
-                if(index != null)
-                {
-                    index = ret ? index + 1 : null;
-                }
+                index = ret ? index + 1 : -1;
 
                 return ret;
             }
@@ -202,18 +199,23 @@ namespace EnumeratorExtensions
             EnumerableZip<TSource1, TSource2, TResult> parent;
             IEnumerator<TSource1> enumerator1;
             IEnumerator<TSource2> enumerator2;
+            bool valid;
 
             public Enumerator(EnumerableZip<TSource1, TSource2, TResult> parent)
             {
                 this.parent = parent;
                 this.enumerator1 = parent.source1.GetEnumerator();
                 this.enumerator2 = parent.source2.GetEnumerator();
+                valid = false;
             }
 
             public TResult Current
             {
                 get
                 {
+                    if (!valid)
+                        throw new InvalidOperationException();
+
                     return parent.selector(enumerator1.Current, enumerator2.Current);
                 }
             }
@@ -228,13 +230,14 @@ namespace EnumeratorExtensions
 
             public bool MoveNext()
             {
-                return enumerator1.MoveNext() && enumerator2.MoveNext();
+                return valid = enumerator1.MoveNext() && enumerator2.MoveNext();
             }
 
             public void Reset()
             {
                 enumerator1.Reset();
                 enumerator2.Reset();
+                valid = true;
             }
         }
     }
@@ -265,20 +268,20 @@ namespace EnumeratorExtensions
             EnumerableWhere<TSource> parent;
             IEnumerator<TSource> enumerator;
             TSource current;
-            bool started;
+            bool valid;
 
             public Enumerator(EnumerableWhere<TSource> parent)
             {
                 this.parent = parent;
                 this.enumerator = parent.source.GetEnumerator();
-                started = false;
+                valid = false;
             }
 
             public TSource Current
             {
                 get
                 {
-                    if (!started)
+                    if (!valid)
                         throw new InvalidOperationException();
 
                     return current;
@@ -293,22 +296,21 @@ namespace EnumeratorExtensions
             }
 
             public bool MoveNext()
-            {                
+            {
+                valid = false;
                 while (enumerator.MoveNext())
                 {
-                    if (parent.predicate(current = enumerator.Current))
-                    {
-                        started = true;
-                        return true;
-                    }
+                    if (valid = parent.predicate(current = enumerator.Current))
+                        break;
                 }
 
-                return false;
+                return valid;
             }
 
             public void Reset()
             {
                 enumerator.Reset();
+                valid = false;
             }
         }
     }
