@@ -35,11 +35,11 @@ namespace EnumeratorExtensions
             return new EnumerableSorted<TSource, TKey>(keySelector, false, comparer, source);
         }
 
-        public static IOrderedEnumerable<TSource> ThenByDecending<TSource, TKey>(this IOrderedEnumerable<TSource> source, Func<TSource, TKey> keySelector)
+        public static IOrderedEnumerable<TSource> ThenByDescending<TSource, TKey>(this IOrderedEnumerable<TSource> source, Func<TSource, TKey> keySelector)
         {
-            return ThenByDecending(source, keySelector, null);
+            return ThenByDescending(source, keySelector, null);
         }
-        public static IOrderedEnumerable<TSource> ThenByDecending<TSource, TKey>(this IOrderedEnumerable<TSource> source, Func<TSource, TKey> keySelector, IComparer<TKey> comparer)
+        public static IOrderedEnumerable<TSource> ThenByDescending<TSource, TKey>(this IOrderedEnumerable<TSource> source, Func<TSource, TKey> keySelector, IComparer<TKey> comparer)
         {
             if (source == null)
                 throw new ArgumentNullException("'source' can't be null");

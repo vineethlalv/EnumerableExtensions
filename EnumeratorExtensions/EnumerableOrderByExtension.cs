@@ -153,7 +153,7 @@ namespace EnumeratorExtensions
                 if (next != null)
                     return next.Compare(i1, i2);
 
-                return i2 - i1;
+                return i1 - i2;
             }
             return decending ? -order : order;
         }
